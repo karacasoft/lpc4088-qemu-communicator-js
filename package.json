@@ -1,11 +1,12 @@
 {
   "name": "qemu-lpc4088-controller",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "dist/index.js",
   "scripts": {
     "start": "ts-node --files src/index.ts",
     "build": "tsc",
+    "postinstall": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Mahmut Karaca",
