@@ -1,15 +1,13 @@
 import PosixMQ from 'posix-mq';
 import { QemuMessage } from './qemu_mq_types';
+import { clr_port_pin, set_port_pin, status } from './gpio/gpio_sender';
+import { get_pin_iocon } from './iocon/iocon_sender';
+import { send_capture } from './timer/timer_sender';
 import os from 'os';
 
 const SenderMQ = new PosixMQ();
 
-SenderMQ.open({
-    name: '/qemu_rc',
-    create: false,
-    maxmsgs: 10,
-    msgsize: 32
-});
+
 
 function sendMessage(msg: QemuMessage): boolean {
     let buffer = Buffer.alloc(32);
@@ -37,7 +35,28 @@ function sendMessage(msg: QemuMessage): boolean {
     return r;
 }
 
+export const GPIO = {
+    set_pin: set_port_pin(sendMessage),
+    clr_pin: clr_port_pin(sendMessage),
+    status: status(sendMessage),
+}
+
+export const IOCON = {
+    get_pin: get_pin_iocon(sendMessage),
+}
+
+export const TIMER = {
+    send_capture: send_capture(sendMessage),
+}
+
 export default {
-    mq: SenderMQ,
+    open: () => {
+        SenderMQ.open({
+            name: '/qemu_rc',
+            maxmsgs: 10,
+            msgsize: 32
+        });
+    },
     sendMessage,
+    
 };

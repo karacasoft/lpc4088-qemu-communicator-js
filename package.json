@@ -4,6 +4,7 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
+    "qemurun": "ts-node --files src/apprunner/index.ts",
     "start": "ts-node --files src/index.ts",
     "build": "tsc",
     "postinstall": "npm run build",

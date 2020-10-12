@@ -34,26 +34,33 @@ function parseMessage(msg: Buffer): QemuMessage {
     return qemu_msg;
 }
 
+let external_rec_handler: ((msg: QemuMessage) => void) | undefined = undefined;
+
 let rec_handler = function() {
     const mq = rec_mq;
     let n;
     while((n = mq.shift(readbuf)) !== false) {
-        console.log(`Received message (${n} bytes)`);
+        //console.log(`Received message (${n} bytes)`);
         let msg = parseMessage(readbuf);
-        console.log(msg);
+        if(external_rec_handler !== undefined) external_rec_handler(msg);
+        //console.log(msg);
     }
 };
 
-rec_mq.on('messages', rec_handler);
 
-rec_mq.open({
-    name: '/qemu_rc_out',
-    create: false,
-    maxmsgs: 10,
-    msgsize: 32
-});
 
 export default {
-    mq: rec_mq,
+    open: () => {
+        rec_mq.open({
+            name: '/qemu_rc_out',
+            maxmsgs: 10,
+            msgsize: 32
+        });
+
+        rec_mq.on('messages', rec_handler);
+
+        rec_handler();
+    },
+    set_receive_handler: (handler: (msg: QemuMessage) => void) => external_rec_handler = handler,
     triggerReceiveHandler: () => { rec_handler(); },
 };
