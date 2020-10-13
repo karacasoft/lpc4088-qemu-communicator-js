@@ -4,6 +4,7 @@ export const MAGIC_NUMBERS: { [k: number]: string } = {
     [0xDEADBEE2]: "GPIO",
     [0x1EE7C0DE]: "IOCON",
     [0xDEEDBEE3]: "TIMER",
+    [0xBADB0001]: "USART",
 };
 
 export const GPIO_RECEIVED_MESSAGE_CODES: { [k: number]: string} = {
@@ -16,6 +17,10 @@ export const IOCON_RECEIVED_MESSAGE_CODES: { [k: number]: string} = {
 
 export const TIMER_RECEIVED_MESSAGE_CODES: { [k: number]: string} = {
     [0]: "reg_status"
+}
+
+export const USART_RECEIVED_MESSAGE_CODES: { [k: number]: string} = {
+    [0]: "char"
 }
 
 export const QEMU_PATH = process.env.QEMU_PATH ?

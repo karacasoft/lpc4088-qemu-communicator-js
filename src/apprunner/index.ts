@@ -1,8 +1,8 @@
-import SenderMQ, { GPIO, IOCON, TIMER } from '../sender';
+import SenderMQ, { GPIO, IOCON, TIMER, USART } from '../sender';
 import ReceiverMQ from '../receiver';
-import { QemuMessage, toPinType, toPortType, toTimerType } from '../qemu_mq_types';
+import { QemuMessage, toPinType, toPortType, toTimerType, toUsartType } from '../qemu_mq_types';
 import fs from 'fs';
-import { GPIO_RECEIVED_MESSAGE_CODES, IOCON_RECEIVED_MESSAGE_CODES, MAGIC_NUMBERS, TIMER_RECEIVED_MESSAGE_CODES } from '../constants';
+import { GPIO_RECEIVED_MESSAGE_CODES, IOCON_RECEIVED_MESSAGE_CODES, MAGIC_NUMBERS, TIMER_RECEIVED_MESSAGE_CODES, USART_RECEIVED_MESSAGE_CODES } from '../constants';
 import { exit } from 'process';
 import { start_qemu, QemuProcessInterface } from './qemu_runner';
 
@@ -18,6 +18,8 @@ enum AppRunnerCommands {
     IOCON_GET_PIN = "IOCON_GET_PIN",
 
     TIMER_SEND_CAPTURE = "TIMER_SEND_CAPTURE",
+
+    USART_SEND_STR = "USART_SEND_STR",
 }
 
 const log_file_fd = fs.openSync("log.txt", 'w');
@@ -49,6 +51,11 @@ function handler(msg: QemuMessage) {
         if(TIMER_RECEIVED_MESSAGE_CODES[msg.cmd] === "reg_status") {
             let timer_reg_status = `${Date.now()} TIMER${String.fromCharCode(msg.arg1)} ${msg.arg2} 0x${msg.arg3.toString(16)}\n`;
             fs.writeSync(log_file_fd, timer_reg_status);
+        }
+    } else if(MAGIC_NUMBERS[msg.magic] === "USART") {
+        if(USART_RECEIVED_MESSAGE_CODES[msg.cmd] === "char") {
+            let usart_received_char = `${Date.now()} USART${String.fromCharCode(msg.arg1)} ${String.fromCharCode(msg.arg2)}`;
+            fs.writeSync(log_file_fd, usart_received_char);
         }
     }
 }
@@ -121,6 +128,16 @@ async function execute_command(cmd: string, qemu: QemuProcessInterface) {
                     console.error(`Command TIMER_SEND_CAPTURE failed, invalid arguments.`);
                 } else {
                     TIMER.send_capture(t_num, cap_pin, rising);
+                }
+            }
+            break;
+        case AppRunnerCommands.USART_SEND_STR:
+            {
+                const u_num = toUsartType(parseInt(args[1]));
+                if(u_num === undefined || args[2] === undefined) {
+                    console.error(`Command USART_SEND_STR failed, invalid arguments.`);
+                } else {
+                    USART.usart_send_chars(u_num, args[2]);
                 }
             }
             break;
