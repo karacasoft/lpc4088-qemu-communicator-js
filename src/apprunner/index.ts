@@ -1,8 +1,8 @@
 import SenderMQ, { GPIO, IOCON, TIMER, USART } from '../sender';
-import ReceiverMQ from '../receiver';
-import { QemuMessage, toPinType, toPortType, toTimerType, toUsartType } from '../qemu_mq_types';
+import ReceiverMQ, { QemuEventData } from '../receiver';
+import { PinType, PortType, PwmType, QemuMessage, TimerType, toPinType, toPortType, toPwmType, toTimerType, toUsartType, UsartType } from '../qemu_mq_types';
 import fs from 'fs';
-import { GPIO_RECEIVED_MESSAGE_CODES, IOCON_RECEIVED_MESSAGE_CODES, MAGIC_NUMBERS, TIMER_RECEIVED_MESSAGE_CODES, USART_RECEIVED_MESSAGE_CODES } from '../constants';
+import { GPIO_RECEIVED_MESSAGE_CODES, IOCON_RECEIVED_MESSAGE_CODES, MAGIC_NUMBERS, PWM_RECEIVED_MESSAGE_CODES, TIMER_RECEIVED_MESSAGE_CODES, USART_RECEIVED_MESSAGE_CODES } from '../constants';
 import { exit } from 'process';
 import { start_qemu, QemuProcessInterface } from './qemu_runner';
 
@@ -22,7 +22,7 @@ enum AppRunnerCommands {
     USART_SEND_STR = "USART_SEND_STR",
 }
 
-const log_file_fd = fs.openSync("log.txt", 'w');
+
 
 const keypress = async () => {
     process.stdin.setRawMode(true);
@@ -32,31 +32,44 @@ const keypress = async () => {
     }))
 };
 
-function handler(msg: QemuMessage) {
-    if(MAGIC_NUMBERS[msg.magic] === "GPIO") {
-        if(GPIO_RECEIVED_MESSAGE_CODES[msg.cmd] === "status") {
-            let gpio_status_dir = `${Date.now()} GPIO DIR${String.fromCharCode(msg.arg1)} 0x${msg.arg2.toString(16)}\n`;
-            let gpio_status_mask = `${Date.now()} GPIO MASK${String.fromCharCode(msg.arg1)} 0x${msg.arg3.toString(16)}\n`;
-            let gpio_status_pin = `${Date.now()} GPIO PIN${String.fromCharCode(msg.arg1)} 0x${msg.arg4.toString(16)}\n`;
-            fs.writeSync(log_file_fd, gpio_status_dir);
-            fs.writeSync(log_file_fd, gpio_status_mask);
-            fs.writeSync(log_file_fd, gpio_status_pin);
+export function log_file_msg_handler(log_file_fd: number) {
+    return (msg: QemuEventData) => {
+        if(msg.module === "GPIO") {
+            if(msg.event === "reg_change") {
+                let gpio_status_dir = `${Date.now()} GPIO DIR${msg.port} 0x${msg.DIR.toString(16)}\n`;
+                let gpio_status_mask = `${Date.now()} GPIO MASK${msg.port} 0x${msg.MASK.toString(16)}\n`;
+                let gpio_status_pin = `${Date.now()} GPIO PIN${msg.port} 0x${msg.PIN.toString(16)}\n`;
+                fs.writeSync(log_file_fd, gpio_status_dir);
+                fs.writeSync(log_file_fd, gpio_status_mask);
+                fs.writeSync(log_file_fd, gpio_status_pin);
+            }
+        } else if(msg.module === "IOCON") {
+            if(msg.event === "reg_change") {
+                let iocon_pin_status = `${Date.now()} IOCON ${msg.port} ${msg.pin} 0x${msg.value.toString(16)}\n`;
+                fs.writeSync(log_file_fd, iocon_pin_status);
+            }
+        } else if(msg.module === "TIMER") {
+            if(msg.event === "reg_change") {
+                let timer_reg_status = `${Date.now()} TIMER${msg.timer_name} ${msg.reg_offset} 0x${msg.value.toString(16)}\n`;
+                fs.writeSync(log_file_fd, timer_reg_status);
+            }
+        } else if(msg.module === "USART") {
+            if(msg.event === "char") {
+                let usart_received_char = `${Date.now()} USART${msg.usart_name} ${msg.received_char}\n`;
+                fs.writeSync(log_file_fd, usart_received_char);
+            }
+        } else if(msg.module === "PWM") {
+            if(msg.event === "reg_change") {
+                let pwm_reg_status = `${Date.now()} PWM${msg.pwm_name} ${msg.reg_offset} 0x${msg.value.toString(16)}\n`;
+                fs.writeSync(log_file_fd, pwm_reg_status);
+            }
         }
-    } else if(MAGIC_NUMBERS[msg.magic] === "IOCON") {
-        if(IOCON_RECEIVED_MESSAGE_CODES[msg.cmd] === "pin_status") {
-            let iocon_pin_status = `${Date.now()} IOCON ${String.fromCharCode(msg.arg1)} ${msg.arg2} 0x${msg.arg3.toString(16)}\n`;
-            fs.writeSync(log_file_fd, iocon_pin_status);
-        }
-    } else if(MAGIC_NUMBERS[msg.magic] === "TIMER") {
-        if(TIMER_RECEIVED_MESSAGE_CODES[msg.cmd] === "reg_status") {
-            let timer_reg_status = `${Date.now()} TIMER${String.fromCharCode(msg.arg1)} ${msg.arg2} 0x${msg.arg3.toString(16)}\n`;
-            fs.writeSync(log_file_fd, timer_reg_status);
-        }
-    } else if(MAGIC_NUMBERS[msg.magic] === "USART") {
-        if(USART_RECEIVED_MESSAGE_CODES[msg.cmd] === "char") {
-            let usart_received_char = `${Date.now()} USART${String.fromCharCode(msg.arg1)} ${String.fromCharCode(msg.arg2)}`;
-            fs.writeSync(log_file_fd, usart_received_char);
-        }
+    }
+}
+
+export function object_msg_handler(log: QemuEventData[]) {
+    return (msg: QemuEventData) => {
+        log.push(msg);
     }
 }
 
@@ -150,10 +163,10 @@ async function execute_command(cmd: string, qemu: QemuProcessInterface) {
     }
 }
 
-async function execute_commands(file: string) {
-    ReceiverMQ.set_receive_handler(handler);
+export async function execute_commands(file: string, exe_file: string, msg_handler: (msg: QemuEventData) => void) {
+    ReceiverMQ.set_receive_handler(msg_handler);
 
-    let qemu = await start_qemu("/run/media/karacasoft/KSYedeks/arm_toolchain/test_program/prog.elf");
+    let qemu = await start_qemu(exe_file);
     
     SenderMQ.open();
     ReceiverMQ.open();
@@ -169,7 +182,6 @@ async function execute_commands(file: string) {
                 await execute_command(cmd, qemu);
             }
             
-            fs.closeSync(log_file_fd);
             qemu.kill();
             resolve();
         });
@@ -183,9 +195,5 @@ async function execute_commands(file: string) {
     
 }
 
-execute_commands("testfile.txt").then(_ => {
-    exit(0);
-}, err => {
-    console.error(err);
-    exit(1);
-});
+// default exe: "/run/media/karacasoft/KSYedeks/arm_toolchain/test_program/prog.elf"
+

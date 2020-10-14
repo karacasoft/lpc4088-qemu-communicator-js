@@ -4,6 +4,7 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
+    "qemu_test": "ts-node --files src/qemu_integrity_tests/index.ts",
     "qemurun": "ts-node --files src/apprunner/index.ts",
     "start": "ts-node --files src/index.ts",
     "build": "tsc",

@@ -19,10 +19,10 @@ export function start_qemu(executable: string) {
 
         let process = execFile(QEMU_PATH, [ QEMU_PATH, "-machine", "LPC4088", "-kernel", executable, "-monitor", "stdio", "-s", "-S", "-singlestep" ]);
         process.stdout ? process.stdout.on("data", (chunk) => {
-            console.log(`||QEMU.stdout||=> ${chunk.toString()}`);
+            //console.log(`||QEMU.stdout||=> ${chunk.toString()}`);
         }) : null;
         process.stderr ? process.stderr.on("data", (chunk) => {
-            console.log(`||QEMU.stderr||=> ${chunk.toString()}`);
+            //console.log(`||QEMU.stderr||=> ${chunk.toString()}`);
         }) : null;
         process.on("message", (message) => {
             console.log(message);
@@ -49,6 +49,7 @@ export function start_qemu(executable: string) {
         while(!failed && !fs.existsSync("/dev/mqueue/qemu_rc"));
         if(!failed) {
             resolved_already = true;
+            process.stdin ? process.stdin.write("logfile qemu.log\n") : undefined;
             resolve({
                 run: () => process.stdin ? process.stdin.write("c\n") : undefined,
                 setOnExit: (onExit: ((err?: Error) => void)) => {

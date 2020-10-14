@@ -25,6 +25,8 @@ export type TimerType = 0 | 1 | 2 | 3;
 
 export type UsartType = 0 | 1 | 2 | 3 | 4;
 
+export type PwmType = 0 | 1;
+
 export function toPortType(inp: number): PortType | undefined {
     inp = Math.floor(inp);
     if(inp >= 0 && inp <= 5) {
@@ -56,6 +58,16 @@ export function toUsartType(inp: number): UsartType | undefined {
     inp = Math.floor(inp);
     if(inp >= 0 && inp <= 4) {
         return inp as UsartType;
+    } else {
+        return undefined;
+    }
+}
+
+export function toPwmType(inp: number): PwmType | undefined {
+    if(inp === 0) {
+        return 0;
+    } else if(inp === 1) {
+        return 1;
     } else {
         return undefined;
     }
