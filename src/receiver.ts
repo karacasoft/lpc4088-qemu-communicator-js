@@ -195,6 +195,9 @@ export default {
 
         rec_handler();
     },
+    close: () => {
+        rec_mq.close();
+    },
     set_receive_handler: (handler: (msg: QemuEventData) => void) => external_rec_handler = handler,
     triggerReceiveHandler: () => { rec_handler(); },
 };
