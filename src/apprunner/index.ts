@@ -20,8 +20,15 @@ enum AppRunnerCommands {
     TIMER_SEND_CAPTURE = "TIMER_SEND_CAPTURE",
 
     USART_SEND_STR = "USART_SEND_STR",
+
+    LOG = "LOG",
 }
 
+export interface CustomLogEvent {
+    text: string;
+}
+
+export type CustomLogEventHandler = (ev: CustomLogEvent) => void;
 
 
 const keypress = async () => {
@@ -79,7 +86,7 @@ async function sleep(ms: number) {
     });
 }
 
-async function execute_command(cmd: string, qemu: QemuProcessInterface) {
+async function execute_command(cmd: string, qemu: QemuProcessInterface, log_event_handler?: CustomLogEventHandler) {
     let args = cmd.split(" ");
     switch(args[0] as AppRunnerCommands) {
         case AppRunnerCommands.WAIT:
@@ -154,6 +161,9 @@ async function execute_command(cmd: string, qemu: QemuProcessInterface) {
                 }
             }
             break;
+        case AppRunnerCommands.LOG:
+            log_event_handler && log_event_handler({ text: args[1] });
+            break;
         case AppRunnerCommands.START_EXEC:
             qemu.run();
             break;
@@ -163,7 +173,9 @@ async function execute_command(cmd: string, qemu: QemuProcessInterface) {
     }
 }
 
-export async function execute_commands(file: string, exe_file: string, msg_handler: (msg: QemuEventData) => void) {
+export async function execute_commands(file: string, exe_file: string,
+        msg_handler: (msg: QemuEventData) => void,
+        log_event_handler?: (ev: CustomLogEvent) => void) {
     ReceiverMQ.set_receive_handler(msg_handler);
 
     let qemu = await start_qemu(exe_file);
@@ -178,14 +190,23 @@ export async function execute_commands(file: string, exe_file: string, msg_handl
             }
             let commands = data.toString().split("\n");
             for(let idx in commands) {
-                let cmd = commands[idx]
-                await execute_command(cmd, qemu);
+                let cmd = commands[idx].trim();
+                cmd.replace("\r", "");
+                if(!cmd.startsWith("#") && cmd.length !== 0) {
+                    await execute_command(cmd, qemu, log_event_handler);
+                }
             }
-            
+            qemu.setOnExit(_ => {
+                
+            });
+            SenderMQ.close();
+            ReceiverMQ.close();
             qemu.kill();
             resolve();
         });
         qemu.setOnExit(err => {
+            SenderMQ.close();
+            ReceiverMQ.close();
             console.log("QEMU closed unexpectedly with error:");
             console.error(err);
             reject(err);

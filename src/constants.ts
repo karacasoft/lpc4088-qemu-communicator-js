@@ -17,7 +17,8 @@ export const IOCON_RECEIVED_MESSAGE_CODES: { [k: number]: string} = {
 };
 
 export const TIMER_RECEIVED_MESSAGE_CODES: { [k: number]: string} = {
-    [0]: "reg_status"
+    [0]: "reg_status",
+    [1]: "emr_change"
 }
 
 export const USART_RECEIVED_MESSAGE_CODES: { [k: number]: string} = {

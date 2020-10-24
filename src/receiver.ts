@@ -6,6 +6,7 @@ import { GPIO_RECEIVED_MESSAGE_CODES, IOCON_RECEIVED_MESSAGE_CODES, MAGIC_NUMBER
 export type QemuEventData = GPIOEventLogEntry |
                        IOCONEventLogEntry |
                        TIMEREventLogEntry |
+                       TIMEREMRChangeLogEntry |
                        USARTEventLogEntry |
                        PWMEventLogEntry;
 
@@ -31,6 +32,13 @@ export interface TIMEREventLogEntry {
     event: "reg_change";
     timer_name: TimerType;
     reg_offset: number; // TODO extract register name from offset MAYBEEEEEE?????
+    value: number;
+}
+
+export interface TIMEREMRChangeLogEntry {
+    module: "TIMER";
+    event: "emr_change";
+    timer_name: TimerType;
     value: number;
 }
 
@@ -131,6 +139,18 @@ function parse_message_fields(msg: QemuMessage) {
                     timer_name: timer_name,
                     reg_offset: msg.arg2,
                     value: msg.arg3,
+                };
+            }
+        } else if(TIMER_RECEIVED_MESSAGE_CODES[msg.cmd] === "emr_change") {
+            const timer_name = toTimerType(msg.arg1 - "0".charCodeAt(0));
+            if(timer_name === undefined) {
+                console.log("Log message skipped. Timer name is undefined");
+            } else {
+                event_data = {
+                    module: "TIMER",
+                    event: "emr_change",
+                    timer_name: timer_name,
+                    value: msg.arg2,
                 };
             }
         }

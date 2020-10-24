@@ -5,6 +5,8 @@ import { get_pin_iocon } from './iocon/iocon_sender';
 import { send_capture } from './timer/timer_sender';
 import os from 'os';
 import { send_chars } from './usart/usart_sender';
+import { set_adc_value } from './adc/adc_sender';
+import { set_ext_int_pin } from './sc/sc_sender';
 
 const SenderMQ = new PosixMQ();
 
@@ -60,6 +62,14 @@ export const TIMER = {
 
 export const USART = {
     usart_send_chars: send_chars(sendMessage),
+}
+
+export const ADC = {
+    adc_set_value: set_adc_value(sendMessage),
+}
+
+export const SC = {
+    set_ext_int_pin: set_ext_int_pin(sendMessage),
 }
 
 export default {

@@ -1,5 +1,7 @@
 import fs from 'fs';
 import { execute_commands, object_msg_handler, log_file_msg_handler } from '../apprunner/index';
+import SenderMQ from '../sender';
+import ReceiverMQ from '../receiver';
 import { QemuEventData } from '../receiver';
 
 
