@@ -62,7 +62,7 @@ export function log_file_msg_handler(log_file_fd: number) {
             }
         } else if(msg.module === "USART") {
             if(msg.event === "char") {
-                let usart_received_char = `${Date.now()} USART${msg.usart_name} ${msg.received_char}\n`;
+                let usart_received_char = `${Date.now()} USART${msg.usart_name} CHAR ${msg.received_char}\n`;
                 fs.writeSync(log_file_fd, usart_received_char);
             }
         } else if(msg.module === "PWM") {
@@ -183,7 +183,9 @@ export async function execute_commands(file: string, exe_file: string,
     SenderMQ.open();
     ReceiverMQ.open();
 
+    let failed = false;
     await new Promise((resolve, reject) => {
+        console.log(`Processing file ${exe_file}`);
         fs.readFile(file, async (err, data) => {
             if(err) {
                 reject(err);
@@ -193,7 +195,15 @@ export async function execute_commands(file: string, exe_file: string,
                 let cmd = commands[idx].trim();
                 cmd.replace("\r", "");
                 if(!cmd.startsWith("#") && cmd.length !== 0) {
-                    await execute_command(cmd, qemu, log_event_handler);
+                    try {
+                        await execute_command(cmd, qemu, log_event_handler);
+                    } catch(err) {
+                        console.log("An error occurred while executing code");
+                        console.error(err);
+                    }
+                }
+                if(failed) {
+                    return;
                 }
             }
             qemu.setOnExit(_ => {
@@ -205,6 +215,7 @@ export async function execute_commands(file: string, exe_file: string,
             resolve();
         });
         qemu.setOnExit(err => {
+            failed = true;
             SenderMQ.close();
             ReceiverMQ.close();
             console.log("QEMU closed unexpectedly with error:");
