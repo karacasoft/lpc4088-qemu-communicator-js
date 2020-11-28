@@ -5,6 +5,7 @@ import fs from 'fs';
 import { GPIO_RECEIVED_MESSAGE_CODES, IOCON_RECEIVED_MESSAGE_CODES, MAGIC_NUMBERS, PWM_RECEIVED_MESSAGE_CODES, TIMER_RECEIVED_MESSAGE_CODES, USART_RECEIVED_MESSAGE_CODES } from '../constants';
 import { exit } from 'process';
 import { start_qemu, QemuProcessInterface } from './qemu_runner';
+import { connect } from 'http2';
 
 enum AppRunnerCommands {
     WAIT = "WAIT",
@@ -123,7 +124,6 @@ async function execute_command(cmd: string, qemu: QemuProcessInterface, log_even
             break;
         case AppRunnerCommands.GPIO_STATUS:
             GPIO.status();
-            ReceiverMQ.triggerReceiveHandler();
             break;
         case AppRunnerCommands.IOCON_GET_PIN:
             {
@@ -180,8 +180,14 @@ export async function execute_commands(file: string, exe_file: string,
 
     let qemu = await start_qemu(exe_file);
     
-    SenderMQ.open();
-    ReceiverMQ.open();
+    let connected = false;
+    while(!connected) {
+        try {
+            await SenderMQ.open();
+            await ReceiverMQ.open();
+            connected = true;
+        } catch(err) {}
+    }
 
     let failed = false;
     await new Promise((resolve, reject) => {
@@ -209,8 +215,8 @@ export async function execute_commands(file: string, exe_file: string,
             qemu.setOnExit(_ => {
                 
             });
-            SenderMQ.close();
-            ReceiverMQ.close();
+            await SenderMQ.close();
+            await ReceiverMQ.close();
             qemu.kill();
             resolve();
         });

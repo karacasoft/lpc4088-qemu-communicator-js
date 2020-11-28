@@ -17,12 +17,12 @@ export function start_qemu(executable: string) {
 
         if(fs.existsSync("/dev/mqueue/qemu_rc")) fs.unlinkSync("/dev/mqueue/qemu_rc");
 
-        let process = execFile(QEMU_PATH, [ QEMU_PATH, "-machine", "LPC4088", "-kernel", executable, "-monitor", "stdio", "-s", "-S", "-singlestep" ]);
+        let process = execFile(QEMU_PATH, [ "-machine", "LPC4088", "-kernel", executable, "-monitor", "stdio", "-s", "-S", "-singlestep" ]);
         process.stdout ? process.stdout.on("data", (chunk) => {
-            //console.log(`||QEMU.stdout||=> ${chunk.toString()}`);
+            console.log(`||QEMU.stdout||=> ${chunk.toString()}`);
         }) : null;
         process.stderr ? process.stderr.on("data", (chunk) => {
-            //console.log(`||QEMU.stderr||=> ${chunk.toString()}`);
+            console.log(`||QEMU.stderr||=> ${chunk.toString()}`);
         }) : null;
         process.on("message", (message) => {
             console.log(message);
@@ -46,7 +46,7 @@ export function start_qemu(executable: string) {
         });
         // Wait until QEMU opens the message queues
         console.log("Waiting for QEMU to open message queues");
-        while(!failed && !fs.existsSync("/dev/mqueue/qemu_rc"));
+        //while(!failed && !fs.existsSync("/dev/mqueue/qemu_rc"));
         if(!failed) {
             resolved_already = true;
             process.stdin ? process.stdin.write("logfile qemu.log\n") : undefined;

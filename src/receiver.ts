@@ -1,7 +1,6 @@
-import PosixMQ from 'posix-mq';
 import { PinType, PortType, PwmType, QemuMessage, TimerType, toPinType, toPortType, toPwmType, toTimerType, toUsartType, UsartType } from './qemu_mq_types';
-import os from 'os';
 import { GPIO_RECEIVED_MESSAGE_CODES, IOCON_RECEIVED_MESSAGE_CODES, MAGIC_NUMBERS, PWM_RECEIVED_MESSAGE_CODES, TIMER_RECEIVED_MESSAGE_CODES, USART_RECEIVED_MESSAGE_CODES } from './constants';
+import QemuConnector from './qemu_connector';
 
 export type QemuEventData = GPIOEventLogEntry |
                        IOCONEventLogEntry |
@@ -57,38 +56,6 @@ export interface PWMEventLogEntry {
     pwm_name: PwmType;
     reg_offset: number; // TODO extract register name from offset MAYBEEEEEE?????
     value: number;
-}
-
-const rec_mq = new PosixMQ();
-
-let readbuf = Buffer.alloc(32);
-
-function parseMessage(msg: Buffer): QemuMessage {
-    let qemu_msg: QemuMessage;
-    if(os.endianness() === "LE") {
-        qemu_msg = {
-            magic: msg.readUInt32LE(0),
-            cmd: msg.readUInt32LE(4),
-            arg1: msg.readUInt32LE(8),
-            arg2: msg.readUInt32LE(12),
-            arg3: msg.readUInt32LE(16),
-            arg4: msg.readUInt32LE(20),
-            arg5: msg.readUInt32LE(24),
-            arg6: msg.readUInt32LE(28),
-        };
-    } else {
-        qemu_msg = {
-            magic: msg.readUInt32BE(0),
-            cmd: msg.readUInt32BE(4),
-            arg1: msg.readUInt32BE(8),
-            arg2: msg.readUInt32BE(12),
-            arg3: msg.readUInt32BE(16),
-            arg4: msg.readUInt32BE(20),
-            arg5: msg.readUInt32BE(24),
-            arg6: msg.readUInt32BE(28),
-        };
-    }
-    return qemu_msg;
 }
 
 let external_rec_handler: ((msg: QemuEventData) => void) | undefined = undefined;
@@ -187,37 +154,22 @@ function parse_message_fields(msg: QemuMessage) {
     return event_data;
 }
 
-let rec_handler = function() {
-    const mq = rec_mq;
-    let n;
-    while((n = mq.shift(readbuf)) !== false) {
-        //console.log(`Received message (${n} bytes)`);
-        let msg = parseMessage(readbuf);
-        let data = parse_message_fields(msg);
-        if(external_rec_handler !== undefined && data !== undefined) {
-            external_rec_handler(data);
-        }
-        //console.log(msg);
+let rec_handler = function(msg: QemuMessage) {
+    let data = parse_message_fields(msg);
+    if(external_rec_handler !== undefined && data !== undefined) {
+        external_rec_handler(data);
     }
 };
 
 
 
 export default {
-    open: () => {
-        rec_mq.open({
-            name: '/qemu_rc_out',
-            maxmsgs: 10,
-            msgsize: 32
-        });
-
-        rec_mq.on('messages', rec_handler);
-
-        rec_handler();
+    open: async () => {
+        await QemuConnector.connect();
+        QemuConnector.setOnReceive(rec_handler);
     },
-    close: () => {
-        rec_mq.close();
+    close: async () => {
+        await QemuConnector.disconnect();
     },
-    set_receive_handler: (handler: (msg: QemuEventData) => void) => external_rec_handler = handler,
-    triggerReceiveHandler: () => { rec_handler(); },
+    set_receive_handler: (handler: (msg: QemuEventData) => void) => external_rec_handler = handler
 };
