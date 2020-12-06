@@ -1,3 +1,7 @@
+export const QEMU_RC_HOST = '127.0.0.1';
+export const QEMU_RC_PORT = 6942;
+
+
 export const SENDING_MAGIC_NUMBER = 0xDEADBEEB;
 
 export const MAGIC_NUMBERS: { [k: number]: string } = {

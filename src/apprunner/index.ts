@@ -2,10 +2,11 @@ import SenderMQ, { GPIO, IOCON, TIMER, USART } from '../sender';
 import ReceiverMQ, { QemuEventData } from '../receiver';
 import { PinType, PortType, PwmType, QemuMessage, TimerType, toPinType, toPortType, toPwmType, toTimerType, toUsartType, UsartType } from '../qemu_mq_types';
 import fs from 'fs';
-import { GPIO_RECEIVED_MESSAGE_CODES, IOCON_RECEIVED_MESSAGE_CODES, MAGIC_NUMBERS, PWM_RECEIVED_MESSAGE_CODES, TIMER_RECEIVED_MESSAGE_CODES, USART_RECEIVED_MESSAGE_CODES } from '../constants';
+import { GPIO_RECEIVED_MESSAGE_CODES, IOCON_RECEIVED_MESSAGE_CODES, MAGIC_NUMBERS, PWM_RECEIVED_MESSAGE_CODES, QEMU_RC_PORT, TIMER_RECEIVED_MESSAGE_CODES, USART_RECEIVED_MESSAGE_CODES } from '../constants';
 import { exit } from 'process';
 import { start_qemu, QemuProcessInterface } from './qemu_runner';
 import { connect } from 'http2';
+import { portInUse } from '../util';
 
 enum AppRunnerCommands {
     WAIT = "WAIT",
@@ -40,8 +41,12 @@ const keypress = async () => {
     }))
 };
 
-export function log_file_msg_handler(log_file_fd: number) {
+export function log_file_msg_handler(log_file_fd: number, max_size?: number) {
+    let size = 0;
     return (msg: QemuEventData) => {
+        if(max_size !== undefined && size > max_size) {
+            return;
+        }
         if(msg.module === "GPIO") {
             if(msg.event === "reg_change") {
                 let gpio_status_dir = `${Date.now()} GPIO DIR${msg.port} 0x${msg.DIR.toString(16)}\n`;
@@ -50,26 +55,31 @@ export function log_file_msg_handler(log_file_fd: number) {
                 fs.writeSync(log_file_fd, gpio_status_dir);
                 fs.writeSync(log_file_fd, gpio_status_mask);
                 fs.writeSync(log_file_fd, gpio_status_pin);
+                size += 3;
             }
         } else if(msg.module === "IOCON") {
             if(msg.event === "reg_change") {
                 let iocon_pin_status = `${Date.now()} IOCON ${msg.port} ${msg.pin} 0x${msg.value.toString(16)}\n`;
                 fs.writeSync(log_file_fd, iocon_pin_status);
+                size += 1;
             }
         } else if(msg.module === "TIMER") {
             if(msg.event === "reg_change") {
                 let timer_reg_status = `${Date.now()} TIMER${msg.timer_name} ${msg.reg_offset} 0x${msg.value.toString(16)}\n`;
                 fs.writeSync(log_file_fd, timer_reg_status);
+                size += 1;
             }
         } else if(msg.module === "USART") {
             if(msg.event === "char") {
                 let usart_received_char = `${Date.now()} USART${msg.usart_name} CHAR ${msg.received_char}\n`;
                 fs.writeSync(log_file_fd, usart_received_char);
+                size += 1;
             }
         } else if(msg.module === "PWM") {
             if(msg.event === "reg_change") {
                 let pwm_reg_status = `${Date.now()} PWM${msg.pwm_name} ${msg.reg_offset} 0x${msg.value.toString(16)}\n`;
                 fs.writeSync(log_file_fd, pwm_reg_status);
+                size += 1;
             }
         }
     }
@@ -177,6 +187,15 @@ export async function execute_commands(file: string, exe_file: string,
         msg_handler: (msg: QemuEventData) => void,
         log_event_handler?: (ev: CustomLogEvent) => void) {
     ReceiverMQ.set_receive_handler(msg_handler);
+    let _portInUse = true;
+    while(_portInUse) {
+        _portInUse = await portInUse(QEMU_RC_PORT);
+        if(_portInUse) {
+            console.log("TCP Port is busy, will retry in 5 seconds");
+            await sleep(5000);
+        }
+    }
+
 
     let qemu = await start_qemu(exe_file);
     

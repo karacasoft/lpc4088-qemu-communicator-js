@@ -1,7 +1,7 @@
 import net from 'net';
 import CRC from 'crc-32';
 import { QemuMessage } from './qemu_mq_types';
-import { MAGIC_NUMBERS } from './constants';
+import { MAGIC_NUMBERS, QEMU_RC_HOST, QEMU_RC_PORT } from './constants';
 
 export type OnReceiveData = (data: QemuMessage) => void;
 
@@ -13,8 +13,8 @@ export interface QemuConnector {
     setOnReceive: (onReceive: OnReceiveData) => void;
 }
 
-const port = 6942;
-const host = '127.0.0.1';
+const port = QEMU_RC_PORT;
+const host = QEMU_RC_HOST;
 
 let clientConnected = false;
 const client = new net.Socket();
@@ -23,7 +23,7 @@ let onReceiveData: OnReceiveData | null = null;
 
 function onClientData() {
 
-    let totalBuffer = Buffer.alloc(10240, 0);
+    let totalBuffer = Buffer.alloc(102400, 0);
     let currentPos = 0;
     let readPos = 0;
 
@@ -39,9 +39,7 @@ function onClientData() {
             }
             const crc32 = msg_buf.readInt32BE(32);
             const crc_calc = CRC.buf(msg_buf.subarray(0, 32), 0);
-            console.log(`Incoming ${crc32.toString(16)}`);
-            console.log(`Calculated ${crc_calc.toString(16)}`)
-            
+
             if(crc32 === crc_calc) {
                 const msg: QemuMessage = {
                     magic: msg_buf.readUInt32BE(0),
@@ -62,9 +60,9 @@ function onClientData() {
             
         }
         if(currentPos > readPos) {
+            totalBuffer.copyWithin(0, readPos, currentPos);
             currentPos = (currentPos - readPos);
             readPos = 0;
-            totalBuffer.copyWithin(0, readPos, currentPos);
         }
     }
 }
@@ -97,8 +95,9 @@ async function connect() {
 }
 
 async function disconnect() {
-    if(!clientConnected) return;
     client.destroy();
+    if(!clientConnected) return;
+    clientConnected = false;
 }
 
 function send(data: Buffer) {

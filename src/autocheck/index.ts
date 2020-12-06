@@ -27,7 +27,7 @@ async function runTestOnCode(test_file: string, code_file: string, log_file: str
 
     try {
         await execute_commands(test_file, code_file,
-                log_file_msg_handler(log_file_fd),
+                log_file_msg_handler(log_file_fd, 250),
                 custom_log_event_handler);
     } catch(err) {
         // TODO print "good" error message
