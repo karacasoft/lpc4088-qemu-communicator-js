@@ -88,7 +88,7 @@ async function connect() {
             clientConnected = false;
             client.removeAllListeners('connect');
             client.removeAllListeners('error');
-            reject();
+            reject(err);
         });
         client.connect({ host, port });
     });
