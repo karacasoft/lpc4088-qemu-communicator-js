@@ -30,4 +30,4 @@ export const PWM_RECEIVED_MESSAGE_CODES: { [k: number]: string} = {
 }
 
 export const QEMU_PATH = process.env.QEMU_PATH ?
-        process.env.QEMU_PATH : "/run/media/karacasoft/KSYedeks/src/qemu/bin/debug/arm/arm-softmmu/qemu-system-arm";
+        process.env.QEMU_PATH : "/home/karacasoft/src/qemu/bin/debug/arm";

@@ -9,7 +9,7 @@ export interface QemuProcessInterface {
     kill: () => void;
 }
 
-export function start_qemu(executable: string) {
+export function start_qemu(executable: string, clock_shift: number=1) {
     return new Promise<QemuProcessInterface>((resolve, reject) => {
         let failed = false;
         let resolved_already = false;
@@ -17,7 +17,11 @@ export function start_qemu(executable: string) {
 
         if(fs.existsSync("/dev/mqueue/qemu_rc")) fs.unlinkSync("/dev/mqueue/qemu_rc");
 
-        let process = execFile(QEMU_PATH, [ "-machine", "LPC4088", "-kernel", executable, "-monitor", "stdio", "-s", "-S", "-singlestep" ]);
+        let process = execFile(QEMU_PATH, [ "-machine", "LPC4088",
+                                            "-kernel", executable,
+                                            "-monitor",  "stdio",
+                                            "-icount", `shift=${clock_shift},align=on,sleep=on`,
+                                            "-s", "-S", "-singlestep" ]);
         process.stdout ? process.stdout.on("data", (chunk) => {
             console.log(`||QEMU.stdout||=> ${chunk.toString()}`);
         }) : null;

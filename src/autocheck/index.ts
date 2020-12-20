@@ -13,7 +13,7 @@ ${process.argv[0]} ${process.argv[1]} <directory to process>`);
 }
 
 async function sleep(ms: number) {
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
         setTimeout(() => { resolve(); }, ms);
     });
 }

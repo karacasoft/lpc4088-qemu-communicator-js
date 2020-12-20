@@ -34,7 +34,7 @@ export type CustomLogEventHandler = (ev: CustomLogEvent) => void;
 
 const keypress = async () => {
     process.stdin.setRawMode(true);
-    return new Promise(resolve => process.stdin.once('data', () => {
+    return new Promise<void>(resolve => process.stdin.once('data', () => {
         process.stdin.setRawMode(false);
         resolve();
     }))
@@ -82,7 +82,7 @@ export function object_msg_handler(log: QemuEventData[]) {
 }
 
 async function sleep(ms: number) {
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
         setTimeout(() => { resolve(); }, ms);
     });
 }
@@ -175,10 +175,11 @@ async function execute_command(cmd: string, qemu: QemuProcessInterface, log_even
 
 export async function execute_commands(file: string, exe_file: string,
         msg_handler: (msg: QemuEventData) => void,
-        log_event_handler?: (ev: CustomLogEvent) => void) {
+        log_event_handler?: (ev: CustomLogEvent) => void,
+        timeshift_amount: number=1) {
     ReceiverMQ.set_receive_handler(msg_handler);
 
-    let qemu = await start_qemu(exe_file);
+    let qemu = await start_qemu(exe_file, timeshift_amount);
     
     let connected = false;
     while(!connected) {
@@ -190,7 +191,7 @@ export async function execute_commands(file: string, exe_file: string,
     }
 
     let failed = false;
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
         console.log(`Processing file ${exe_file}`);
         fs.readFile(file, async (err, data) => {
             if(err) {
